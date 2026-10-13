@@ -5,6 +5,8 @@ import 'dart:ui' show FontFeature;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
+import 'rocky/rocky_screen.dart';
+
 void main() => runApp(const HailMaryApp());
 
 class HailMaryApp extends StatelessWidget {
@@ -24,7 +26,47 @@ class HailMaryApp extends StatelessWidget {
         scaffoldBackgroundColor: const Color(0xFF05060C),
         useMaterial3: true,
       ),
-      home: const AstrophageScreen(),
+      home: const HomeShell(),
+    );
+  }
+}
+
+/// Bottom tabs: the Astrophage simulator and Talk to Rocky.
+class HomeShell extends StatefulWidget {
+  const HomeShell({super.key});
+
+  @override
+  State<HomeShell> createState() => _HomeShellState();
+}
+
+class _HomeShellState extends State<HomeShell> {
+  int _tab = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: IndexedStack(
+        index: _tab,
+        children: [
+          // Pause the animation of whichever tab is hidden.
+          TickerMode(enabled: _tab == 0, child: const AstrophageScreen()),
+          TickerMode(enabled: _tab == 1, child: const RockyScreen()),
+        ],
+      ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _tab,
+        onDestinationSelected: (i) => setState(() => _tab = i),
+        height: 64,
+        destinations: const [
+          NavigationDestination(
+              icon: Icon(Icons.wb_sunny_outlined),
+              selectedIcon: Icon(Icons.wb_sunny),
+              label: 'Astrophage'),
+          NavigationDestination(
+              icon: Icon(Icons.graphic_eq),
+              label: 'Talk to Rocky'),
+        ],
+      ),
     );
   }
 }
