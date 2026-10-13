@@ -1,0 +1,60 @@
+name: Build and publish the web app
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: deploy
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      # Generate the web scaffolding (web/index.html, icons, manifest) if it's missing.
+      - name: Create web platform files
+        run: flutter create . --platforms web --project-name hail_mary_app
+
+      - name: Name the home-screen app
+        run: |
+          sed -i 's/"name": "hail_mary_app"/"name": "Hail Mary"/; s/"short_name": "hail_mary_app"/"short_name": "Hail Mary"/' web/manifest.json
+          sed -i 's/"background_color": "[^"]*"/"background_color": "#05060C"/; s/"theme_color": "[^"]*"/"theme_color": "#05060C"/' web/manifest.json
+          sed -i 's|<title>hail_mary_app</title>|<title>Hail Mary</title>|; s|content="hail_mary_app"|content="Hail Mary"|g' web/index.html
+
+      - name: Build
+        run: |
+          set -o pipefail
+          flutter build web --release --base-href /${{ github.event.repository.name }}/ 2>&1 | tee build.log
+
+      # If the build fails, save the log to a branch so it can be read and fixed.
+      - name: Save build log on failure
+        if: failure()
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          mkdir -p /tmp/log && cp build.log /tmp/log/ 2>/dev/null || echo "no log" > /tmp/log/build.log
+          git checkout --orphan ci-logs
+          git rm -rf . > /dev/null
+          cp /tmp/log/build.log .
+          git add build.log
+          git commit -m "Build log for ${GITHUB_SHA}"
+          git push -f origin ci-logs
+
+      - name: Publish to gh-pages branch
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: build/web
+          force_orphan: true
